@@ -51,10 +51,10 @@ impl InitArgs {
         };
         generate(GenerateArgs {
             template_path: TemplatePath {
-                auto_path: None,
+                auto_path: subfolder,
                 git,
                 path: self.local_path.clone(),
-                subfolder,
+                subfolder: None, // This is only used when git, path and favorite are not specified
                 branch,
                 tag: None,
                 test: false,

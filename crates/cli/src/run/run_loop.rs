@@ -23,7 +23,7 @@ pub(super) static OTEL: AtomicBool = AtomicBool::new(false);
 pub(super) static RELEASE: AtomicBool = AtomicBool::new(false);
 
 impl RunLoop {
-    pub(super) fn new(path: PathBuf, config_path: PathBuf) -> Self {
+    pub(super) const fn new(path: PathBuf, config_path: PathBuf) -> Self {
         Self { path, config_path }
     }
 
@@ -49,7 +49,7 @@ impl RunLoop {
         let (signal_tx, signal_rx) = mpsc::channel::<RunSignal>();
 
         // Spawn cargo-run loop in a dedicated thread
-        let cargo_dir_clone = cargo_dir.clone();
+        let cargo_dir_clone = cargo_dir;
         let runner_handle = std::thread::spawn(move || {
             cargo_run_loop(&cargo_dir_clone, &signal_rx);
         });
@@ -94,7 +94,7 @@ impl RunLoop {
 
             if is_config_change {
                 match common::get_config(&self.path, &self.config_path)
-                    .and_then(|c| c.create_dependencies())
+                    .and_then(module_parser::Config::create_dependencies)
                 {
                     Ok(new_deps) => {
                         if new_deps != current_deps {
@@ -109,7 +109,7 @@ impl RunLoop {
                                 let new_watched = collect_dep_paths(&new_deps, &self.path);
                                 for old in watched_paths.difference(&new_watched) {
                                     if let Err(err) = watcher.unwatch(old) {
-                                        eprintln!("failed to unwatch {old:?}: {err}");
+                                        eprintln!("failed to unwatch {}: {err}", old.display());
                                         _ = signal_tx.send(RunSignal::Stop);
                                         runner_handle.join().expect("runner thread panicked");
                                         return Ok(RunSignal::Rerun);
@@ -118,7 +118,7 @@ impl RunLoop {
                                 for new_p in new_watched.difference(&watched_paths) {
                                     if let Err(err) = watcher.watch(new_p, RecursiveMode::Recursive)
                                     {
-                                        eprintln!("failed to watch {new_p:?}: {err}");
+                                        eprintln!("failed to watch {}: {err}", new_p.display());
                                         _ = signal_tx.send(RunSignal::Stop);
                                         runner_handle.join().expect("runner thread panicked");
                                         return Ok(RunSignal::Rerun);
@@ -181,7 +181,7 @@ fn cargo_run_loop(cargo_dir: &Path, signal_rx: &mpsc::Receiver<RunSignal>) {
                     let mut stop = false;
                     loop {
                         match signal_rx.try_recv() {
-                            Ok(RunSignal::Rerun) => continue,
+                            Ok(RunSignal::Rerun) => {}
                             Ok(RunSignal::Stop) | Err(mpsc::TryRecvError::Disconnected) => {
                                 stop = true;
                                 break;
@@ -213,7 +213,7 @@ fn cargo_run_loop(cargo_dir: &Path, signal_rx: &mpsc::Receiver<RunSignal>) {
 
         // Child exited on its own, wait for a signal before restarting
         match signal_rx.recv() {
-            Ok(RunSignal::Rerun) => continue 'outer,
+            Ok(RunSignal::Rerun) => {}
             _ => return,
         }
     }

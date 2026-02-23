@@ -3,7 +3,6 @@ use clap::Args;
 use module_parser::{CargoToml, Config, ConfigModuleMetadata, get_module_name_from_crate};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -77,7 +76,7 @@ async fn main() -> Result<()> {
 }"#;
 
 pub fn cargo_command(subcommand: &str, path: &Path, otel: bool, release: bool) -> Command {
-    let cargo = std::env::var("CARGO").unwrap_or("cargo".to_owned());
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
     let mut cmd = Command::new(cargo);
     cmd.arg(subcommand);
     if otel {
@@ -188,6 +187,7 @@ pub fn generate_server_structure(
 }
 
 fn create_file_structure(path: &Path, relative_path: &str, contents: &str) -> anyhow::Result<()> {
+    use std::io::Write;
     let path = PathBuf::from(path).join(BASE_PATH).join(relative_path);
     fs::create_dir_all(
         path.parent().context(
@@ -210,10 +210,11 @@ fn prepare_cargo_server_main(
     config_path: &Path,
     dependencies: &HashMap<String, ConfigModuleMetadata>,
 ) -> liquid::Object {
-    let dependencies = dependencies
-        .keys()
-        .map(|name| format!("use {name} as _;\n"))
-        .collect::<String>();
+    use std::fmt::Write;
+    let dependencies = dependencies.keys().fold(String::new(), |mut acc, name| {
+        _ = writeln!(acc, "use {name} as _;");
+        acc
+    });
     let config_path = config_path.display().to_string().replace('\\', "/");
 
     liquid::object!({

@@ -28,10 +28,10 @@ pub enum SetupCommand {
 impl SetupCommand {
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            SetupCommand::Tools(args) => args.run(),
-            SetupCommand::Init(args) => args.run(),
-            SetupCommand::Module(args) => args.run(),
-            SetupCommand::Config(args) => args.run(),
+            Self::Tools(args) => args.run(),
+            Self::Init(args) => args.run(),
+            Self::Module(args) => args.run(),
+            Self::Config(args) => args.run(),
         }
     }
 }
