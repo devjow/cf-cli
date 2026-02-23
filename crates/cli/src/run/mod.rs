@@ -1,5 +1,4 @@
 mod run_loop;
-mod templates;
 
 use crate::common::CommonArgs;
 use crate::run::run_loop::RunSignal;
