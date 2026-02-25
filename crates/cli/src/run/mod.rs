@@ -11,7 +11,7 @@ pub struct RunArgs {
     #[arg(short = 'w', long)]
     watch: bool,
     #[command(flatten)]
-    build_run_args: BuildRunArgs,
+    br_args: BuildRunArgs,
     #[command(flatten)]
     common_args: CommonArgs,
 }
@@ -19,7 +19,7 @@ pub struct RunArgs {
 impl RunArgs {
     pub fn run(&self) -> anyhow::Result<()> {
         let path = self
-            .build_run_args
+            .br_args
             .path
             .canonicalize()
             .context("can't canonicalize workspace")?;
@@ -31,18 +31,12 @@ impl RunArgs {
             .context("can't canonicalize config")?;
 
         let rl = run_loop::RunLoop::new(path, config_path);
-        run_loop::OTEL.store(
-            self.build_run_args.otel,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-        run_loop::RELEASE.store(
-            self.build_run_args.release,
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        run_loop::OTEL.store(self.br_args.otel, std::sync::atomic::Ordering::Relaxed);
+        run_loop::RELEASE.store(self.br_args.release, std::sync::atomic::Ordering::Relaxed);
 
         loop {
             match rl.run(self.watch)? {
-                RunSignal::Rerun => continue,
+                RunSignal::Rerun => {}
                 RunSignal::Stop => break Ok(()),
             }
         }

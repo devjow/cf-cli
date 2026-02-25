@@ -10,7 +10,8 @@ pub struct InitArgs {
     /// Verbose output
     #[arg(short = 'v', long)]
     verbose: bool,
-    #[arg(long = "local-path", conflicts_with_all = ["git", "subfolder", "branch"])]
+    /// Path to a local template (instead of git)
+    #[arg(long, conflicts_with_all = ["git", "subfolder", "branch"])]
     local_path: Option<String>,
     /// url to the git repo
     #[arg(
@@ -51,10 +52,10 @@ impl InitArgs {
         };
         generate(GenerateArgs {
             template_path: TemplatePath {
-                auto_path: None,
+                auto_path: subfolder,
                 git,
                 path: self.local_path.clone(),
-                subfolder,
+                subfolder: None, // This is only used when git, path and favorite are not specified
                 branch,
                 tag: None,
                 test: false,
