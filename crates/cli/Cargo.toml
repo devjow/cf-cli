@@ -37,6 +37,7 @@ tar = { workspace = true }
 toml = { workspace = true }
 toml_edit = { workspace = true }
 semver = { workspace = true }
+liquid = "0.26.11"
 
 [lints]
 workspace = true
