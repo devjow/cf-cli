@@ -1,6 +1,7 @@
 mod build;
 mod common;
 mod config;
+mod deploy;
 mod docs;
 mod lint;
 mod r#mod;
@@ -21,6 +22,7 @@ pub struct Cli {
 pub enum Commands {
     Mod(r#mod::ModArgs),
     Config(Box<config::ConfigArgs>),
+    Deploy(deploy::DeployArgs),
     Docs(docs::DocsArgs),
     Lint(lint::LintArgs),
     Test(test::TestArgs),
@@ -34,6 +36,7 @@ impl Cli {
         match self.command {
             Commands::Mod(r#mod) => r#mod.run(),
             Commands::Config(config) => config.run(),
+            Commands::Deploy(deploy) => deploy.run(),
             Commands::Docs(docs) => docs.run(),
             Commands::Lint(lint) => lint.run(),
             Commands::Test(test) => test.run(),

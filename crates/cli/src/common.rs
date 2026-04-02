@@ -75,11 +75,21 @@ impl Display for Registry {
     }
 }
 
+pub fn resolve_workspace_config_and_name(
+    path_config: &PathConfigArgs,
+    override_name: Option<&str>,
+) -> anyhow::Result<(PathBuf, PathBuf, String)> {
+    let path = path_config.resolve_path()?;
+    let config_path = path_config.resolve_config()?;
+    let project_name = resolve_generated_project_name(&config_path, override_name)?;
+
+    Ok((path, config_path, project_name))
+}
+
 impl BuildRunArgs {
     pub fn resolve_workspace_and_config(&self) -> anyhow::Result<(PathBuf, PathBuf, String)> {
-        let path = self.path_config.resolve_path()?;
-        let config_path = self.path_config.resolve_config()?;
-        let project_name = resolve_generated_project_name(&config_path, self.name.as_deref())?;
+        let (path, config_path, project_name) =
+            resolve_workspace_config_and_name(&self.path_config, self.name.as_deref())?;
         if self.clean {
             remove_from_file_structure(&path, &project_name, "Cargo.lock")?;
         }
@@ -109,8 +119,8 @@ async fn main() -> Result<()> {
     // Build OpenTelemetry layer before logging
     // Convert TracingConfig from modkit::bootstrap to modkit's type (they have identical structure)
     #[cfg(feature = "otel")]
-    let otel_layer = if config.tracing.enabled {
-        Some(modkit::telemetry::init::init_tracing(&config.tracing)?)
+    let otel_layer = if config.opentelemetry.tracing.enabled {
+        Some(modkit::telemetry::init::init_tracing(&config.opentelemetry)?)
     } else {
         None
     };
@@ -125,8 +135,8 @@ async fn main() -> Result<()> {
 
     // One-time connectivity probe
     #[cfg(feature = "otel")]
-    if config.tracing.enabled
-        && let Err(e) = modkit::telemetry::init::otel_connectivity_probe(&config.tracing)
+    if config.opentelemetry.tracing.enabled
+        && let Err(e) = modkit::telemetry::init::otel_connectivity_probe(&config.opentelemetry)
     {
         tracing::error!(error = %e, "OTLP connectivity probe failed");
     }
@@ -249,8 +259,18 @@ pub fn generate_server_structure(
     config_path: &Path,
     current_dependencies: &CargoTomlDependencies,
 ) -> anyhow::Result<()> {
+    generate_server_structure_at(path, path, project_name, config_path, current_dependencies)
+}
+
+pub fn generate_server_structure_at(
+    output_root: &Path,
+    dependency_source_root: &Path,
+    project_name: &str,
+    config_path: &Path,
+    current_dependencies: &CargoTomlDependencies,
+) -> anyhow::Result<()> {
     let mut dependencies = current_dependencies.clone();
-    dependencies.extend(create_required_deps(path)?);
+    dependencies.extend(create_required_deps(dependency_source_root)?);
     let cargo_toml = CargoToml {
         package: Package {
             name: project_name.to_owned(),
@@ -266,10 +286,15 @@ pub fn generate_server_structure(
         .build()?
         .parse(CARGO_SERVER_MAIN)?;
 
-    create_file_structure(path, project_name, "Cargo.toml", &cargo_toml_str)?;
-    create_file_structure(path, project_name, ".cargo/config.toml", CARGO_CONFIG_TOML)?;
+    create_file_structure(output_root, project_name, "Cargo.toml", &cargo_toml_str)?;
     create_file_structure(
-        path,
+        output_root,
+        project_name,
+        ".cargo/config.toml",
+        CARGO_CONFIG_TOML,
+    )?;
+    create_file_structure(
+        output_root,
         project_name,
         "src/main.rs",
         &main_template.render(&prepare_cargo_server_main(
