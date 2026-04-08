@@ -11,6 +11,9 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const OUTPUT_SUBDIR: &str = "deploy";
+/// Exact directory/file names excluded from deploy bundle copies.
+/// Additional pattern-based exclusions (`.env*`, `*.swp`, `*~`) are
+/// handled by [`should_skip_bundle_entry`].
 const FILTERED_ENTRY_NAMES: &[&str] =
     &[".DS_Store", ".git", ".github", ".idea", ".vscode", "target"];
 const TEMPLATE_FILE_PAIRS: [(&str, &str); 1] = [("Dockerfile.liquid", "Dockerfile")];
@@ -450,6 +453,10 @@ fn build_template_context(
         "has_cargo_lock": has_cargo_lock,
         "local_paths": local_paths,
         "image_ref": image_ref,
+        // Intentionally hardcoded: the Dockerfile template uses these paths to
+        // conditionally gate OpenTelemetry setup in the generated server main.
+        // The actual runtime value comes from the config.yml copied into the
+        // bundle, not from this template context.
         "config": {
             "opentelemetry": {
                 "tracing": {
