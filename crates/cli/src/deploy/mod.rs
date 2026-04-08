@@ -276,6 +276,7 @@ fn copy_optional_file(source: &Path, destination: &Path) -> anyhow::Result<bool>
 }
 
 fn copy_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    reject_symlink(source)?;
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent).with_context(|| format!("can't create {}", parent.display()))?;
     }
@@ -286,6 +287,18 @@ fn copy_file(source: &Path, destination: &Path) -> anyhow::Result<()> {
             destination.display()
         )
     })?;
+    Ok(())
+}
+
+fn reject_symlink(path: &Path) -> anyhow::Result<()> {
+    let metadata =
+        fs::symlink_metadata(path).with_context(|| format!("can't inspect {}", path.display()))?;
+    if metadata.file_type().is_symlink() {
+        bail!(
+            "symlinked paths are not supported in deploy bundles: {}",
+            path.display()
+        );
+    }
     Ok(())
 }
 
@@ -300,14 +313,9 @@ fn copy_relative_workspace_path(
 }
 
 fn copy_path_recursively(source: &Path, destination: &Path) -> anyhow::Result<()> {
+    reject_symlink(source)?;
     let metadata = fs::symlink_metadata(source)
         .with_context(|| format!("can't inspect {}", source.display()))?;
-    if metadata.file_type().is_symlink() {
-        bail!(
-            "symlinked paths are not supported in deploy bundles: {}",
-            source.display()
-        );
-    }
 
     if metadata.is_dir() {
         fs::create_dir_all(destination)
@@ -516,7 +524,15 @@ mod tests {
     use module_parser::test_utils::TempDirExt;
     use module_parser::{CargoTomlDependencies, CargoTomlDependency};
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+
+    struct CurrentDirGuard(PathBuf);
+
+    impl Drop for CurrentDirGuard {
+        fn drop(&mut self) {
+            let _ = std::env::set_current_dir(&self.0);
+        }
+    }
 
     #[test]
     fn collects_workspace_members_and_dependency_paths() {
@@ -699,7 +715,10 @@ path = "src/lib.rs"
             "COPY {{ generated_project_dir }}/Cargo.toml {{ generated_project_dir }}/Cargo.toml\n{% for path in local_paths %}COPY {{ path }} {{ path }}\n{% endfor %}COPY config.yml /srv/config.yml\nCOPY --from=builder /workspace/target/release/{{ executable_name }} /srv/{{ executable_name }}\n",
         );
 
-        // chdir so workspace_root() resolves to the temp directory
+        // chdir so workspace_root() resolves to the temp directory;
+        // the guard restores the original CWD on drop to avoid leaking
+        // process-global state to other parallel tests.
+        let _cwd_guard = CurrentDirGuard(std::env::current_dir().expect("current dir"));
         std::env::set_current_dir(workspace_root).expect("chdir into temp workspace");
 
         let output_dir = workspace_root.join("bundle");
