@@ -664,7 +664,7 @@ Generate a Docker deployment bundle under `.cyberfabric/deploy/<name>/`.
 Synopsis:
 
 ```bash
-cyberfabric deploy --template docker -c <CONFIG> [-p <PATH>] [--name <NAME>] [--output-dir <PATH>] [--force] [--image-name <NAME>] [--image-tag <TAG>] [--local-path <PATH>] [--git <URL>] [--subfolder <NAME>] [--branch <NAME>]
+cyberfabric deploy --template docker -c <CONFIG> [-p <PATH>] [--name <NAME>] [--output-dir <PATH>] [--force] [--local-path <PATH>] [--git <URL>] [--subfolder <NAME>] [--branch <NAME>] [--build] [--tag <IMAGE:TAG>] [--push]
 ```
 
 Arguments:
@@ -675,12 +675,13 @@ Arguments:
 - **[`--name <NAME>`]** Override the generated server project and executable name; defaults to the config filename stem
 - **[`--output-dir <PATH>`]** Override the deploy bundle output directory; defaults to `.cyberfabric/deploy/<name>/`
 - **[`--force`]** Allow replacing an existing custom output directory outside `.cyberfabric/deploy/`
-- **[`--image-name <NAME>`]** Optional image name used in the generated helper command
-- **[`--image-tag <TAG>`]** Optional image tag used in the generated helper command; defaults to `latest`
 - **[`--local-path <PATH>`]** Use a local deploy template repository instead of Git
 - **[`--git <URL>`]** Deploy template repo URL, defaults to `https://github.com/cyberfabric/cf-template-rust`
 - **[`--subfolder <NAME>`]** Template repo subfolder root, defaults to `Deploy`
 - **[`--branch <NAME>`]** Template repo branch, defaults to `main`
+- **[`--build`]** Build the Docker image from the generated bundle after generation
+- **[`--tag <IMAGE:TAG>`]** Tag the built image with the given reference (implies `--build`); defaults to `<name>:latest` when only `--build` is used
+- **[`--push`]** Push the tagged image to a registry (requires `--tag`)
 
 Behavior:
 
@@ -692,7 +693,7 @@ Behavior:
 - **[copies config as `config.yml`]** Places the selected config file in the deploy bundle root as `config.yml`
 - **[renders from deploy templates]** Loads `Deploy/docker` templates from `cf-template-rust` and renders the `Dockerfile`
 - **[protects custom output directories]** Replaces existing bundle directories under `.cyberfabric/deploy/` automatically, but requires `--force` before deleting an existing custom `--output-dir`
-- **[generate-only]** Does not run `docker build`, push to a registry, or deploy to a cluster
+- **[optional Docker lifecycle]** When `--build` or `--tag` is given, runs `docker build` after generating the bundle; `--push` additionally pushes the tagged image to a registry
 
 Examples:
 
@@ -706,6 +707,14 @@ cyberfabric deploy --template docker -p /tmp/cf-demo -c /tmp/cf-demo/config/quic
 
 ```bash
 cyberfabric deploy --template docker -p /tmp/cf-demo -c /tmp/cf-demo/config/quickstart.yml --local-path ~/dev/cf-template-rust
+```
+
+```bash
+cyberfabric deploy --template docker -p /tmp/cf-demo -c /tmp/cf-demo/config/quickstart.yml --build
+```
+
+```bash
+cyberfabric deploy --template docker -p /tmp/cf-demo -c /tmp/cf-demo/config/quickstart.yml --tag myapp:v1.0 --push
 ```
 
 ### `lint`
