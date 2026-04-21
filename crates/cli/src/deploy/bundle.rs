@@ -34,9 +34,8 @@ pub(super) fn prepare_output_dir(
         .with_context(|| format!("can't canonicalize {}", workspace_root.display()))?;
     let output_dir = canonicalize_path_for_safety(output_dir)?;
     let base_path_root = workspace_root.join(common::BASE_PATH);
-    let deploy_root = base_path_root.join(super::OUTPUT_SUBDIR);
 
-    for reserved_path in [&workspace_root, &base_path_root, &deploy_root] {
+    for reserved_path in [&workspace_root, &base_path_root] {
         if output_dir == *reserved_path {
             bail!(
                 "output directory cannot be the reserved path {}",
@@ -52,7 +51,7 @@ pub(super) fn prepare_output_dir(
                 output_dir.display()
             );
         }
-        if !output_dir.starts_with(&deploy_root) && !force {
+        if !output_dir.starts_with(&base_path_root) && !force {
             bail!(
                 "refusing to replace existing custom output directory {}; pass --force to overwrite it",
                 output_dir.display()
@@ -324,7 +323,7 @@ mod tests {
     fn prepare_output_dir_replaces_default_bundle_dir_without_force() {
         let temp_dir = tempfile::tempdir().expect("temp dir");
         let workspace_root = temp_dir.path();
-        let output_dir = workspace_root.join(".cyberfabric/deploy/demo");
+        let output_dir = workspace_root.join(".cyberfabric/demo/deploy");
 
         fs::create_dir_all(&output_dir).expect("default deploy dir");
         fs::write(output_dir.join("stale.txt"), "stale").expect("stale file");

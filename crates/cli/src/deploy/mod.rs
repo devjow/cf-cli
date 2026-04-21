@@ -133,8 +133,8 @@ impl DeployArgs {
             || {
                 workspace_root
                     .join(common::BASE_PATH)
-                    .join(OUTPUT_SUBDIR)
                     .join(project_name)
+                    .join(OUTPUT_SUBDIR)
             },
             |path| {
                 if path.is_absolute() {
